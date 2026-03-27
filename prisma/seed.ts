@@ -48,10 +48,8 @@ async function main() {
     create: {
       id: "seed-bajka-001",
       userId: user.id,
-      profileId: profil.id,
+      childProfileId: profil.id,
       theme: StoryTheme.MAGIC,
-      petName: "kot",
-      favoriteColor: "różowy",
       moral: "Odwaga i dobroć otwierają każde drzwi.",
       title: "Zosia i Zaczarowany Las",
       status: StoryStatus.PUBLISHED,

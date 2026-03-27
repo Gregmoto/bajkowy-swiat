@@ -3,39 +3,34 @@ import { prisma } from "@/lib/db";
 
 export async function GET() {
   try {
-    const bajki = await prisma.bajka.findMany({
-      orderBy: { created: "desc" },
+    const stories = await prisma.story.findMany({
+      where: { status: "PUBLISHED" },
+      orderBy: { createdAt: "desc" },
       take: 50,
       select: {
         id: true,
-        tytul: true,
-        tresc: true,
-        imie: true,
-        wiek: true,
-        plec: true,
-        motyw: true,
-        ulubZwierze: true,
-        ulubKolor: true,
-        ulubZabawka: true,
-        dodatkowe: true,
-        moral: true,
-        created: true,
-        updated: true,
+        title: true,
+        summary: true,
+        content: true,
+        theme: true,
+        language: true,
+        status: true,
+        coverImage: true,
+        childProfileId: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
     return NextResponse.json(
-      bajki.map((b) => ({
-        ...b,
-        created: b.created.toISOString(),
-        updated: b.updated.toISOString(),
+      stories.map((s) => ({
+        ...s,
+        createdAt: s.createdAt.toISOString(),
+        updatedAt: s.updatedAt.toISOString(),
       }))
     );
-  } catch (blad) {
-    console.error("[GET /api/bajki] Błąd:", blad);
-    return NextResponse.json(
-      { error: "Nie udało się pobrać bajek." },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("[GET /api/bajki]", err);
+    return NextResponse.json({ error: "Nie udało się pobrać bajek." }, { status: 500 });
   }
 }
