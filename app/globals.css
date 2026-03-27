@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 270 30% 98%;
+    --foreground: 270 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 270 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 270 10% 10%;
+
+    --primary: 263 70% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 330 60% 92%;
+    --secondary-foreground: 330 40% 30%;
+
+    --muted: 270 20% 94%;
+    --muted-foreground: 270 10% 45%;
+
+    --accent: 330 60% 92%;
+    --accent-foreground: 330 40% 30%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 270 20% 88%;
+    --input: 270 20% 88%;
+    --ring: 263 70% 50%;
+
+    --radius: 0.6rem;
+  }
+
+  .dark {
+    --background: 270 20% 8%;
+    --foreground: 270 10% 95%;
+
+    --card: 270 20% 11%;
+    --card-foreground: 270 10% 95%;
+
+    --popover: 270 20% 11%;
+    --popover-foreground: 270 10% 95%;
+
+    --primary: 263 70% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 20% 18%;
+    --secondary-foreground: 270 10% 90%;
+
+    --muted: 270 20% 18%;
+    --muted-foreground: 270 10% 60%;
+
+    --accent: 270 20% 18%;
+    --accent-foreground: 270 10% 90%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 270 20% 20%;
+    --input: 270 20% 20%;
+    --ring: 263 70% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Tło z delikatnym wzorem gwiazdek */
+.bajkowe-tlo {
+  background-image: radial-gradient(
+      circle at 25% 25%,
+      hsl(263 70% 50% / 0.04) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 75% 75%,
+      hsl(330 60% 60% / 0.04) 0%,
+      transparent 50%
+    );
+}
+
+/* Płynne przejście animacji loading */
+@keyframes bajka-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.bajka-loading {
+  animation: bajka-pulse 2s ease-in-out infinite;
+}

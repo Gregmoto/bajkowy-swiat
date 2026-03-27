@@ -1,0 +1,207 @@
+// Prisma schema — Bajkowy Świat
+// Dokumentacja: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")        // Prisma >= 5.10: pooler obsługuje też migracje
+}
+
+// ---------------------------------------------------------------------------
+// USER
+// ---------------------------------------------------------------------------
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  hashedPassword String?                // null gdy logowanie OAuth
+  emailVerified  DateTime?
+  image          String?
+  role           UserRole  @default(USER)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // relacje
+  profiles       ChildProfile[]
+  stories        Story[]
+  subscription   Subscription?
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// ---------------------------------------------------------------------------
+// CHILD PROFILE
+// ---------------------------------------------------------------------------
+model ChildProfile {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String                      // imię dziecka
+  age       Int                         // wiek (2–12)
+  gender    Gender
+  avatar    String?                     // emoji lub URL
+  notes     String?  @db.Text           // dodatkowe notatki rodzica
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relacje
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stories   Story[]
+
+  @@index([userId])
+  @@map("child_profiles")
+}
+
+enum Gender {
+  BOY        // chłopiec
+  GIRL       // dziewczynka
+  OTHER      // inne / nie podano
+}
+
+// ---------------------------------------------------------------------------
+// STORY
+// ---------------------------------------------------------------------------
+model Story {
+  id           String    @id @default(cuid())
+  userId       String
+  profileId    String
+
+  // parametry bajki
+  theme        StoryTheme
+  petName      String?                  // ulubione zwierzę
+  favoriteColor String?                 // ulubiony kolor
+  favoriteToy  String?                  // ulubiona zabawka
+  extra        String?   @db.Text       // dodatkowe wskazówki
+  moral        String?                  // przesłanie / morał
+
+  // dane wygenerowane przez AI
+  title        String
+  status       StoryStatus @default(DRAFT)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // relacje
+  user         User         @relation(fields: [userId],    references: [id], onDelete: Cascade)
+  profile      ChildProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  versions     StoryVersion[]
+
+  @@index([userId])
+  @@index([profileId])
+  @@map("stories")
+}
+
+enum StoryTheme {
+  ADVENTURE    // przygoda
+  MAGIC        // magia
+  FRIENDSHIP   // przyjaźń
+  ANIMALS      // zwierzęta
+  SPACE        // kosmos
+  FAIRY_TALE   // bajka klasyczna
+  NATURE       // przyroda
+}
+
+enum StoryStatus {
+  DRAFT        // generowanie w toku / błąd
+  PUBLISHED    // gotowa do czytania
+  ARCHIVED     // schowana w archiwum
+}
+
+// ---------------------------------------------------------------------------
+// STORY VERSION
+// ---------------------------------------------------------------------------
+// Każda (re)generacja bajki tworzy nową wersję — historia zmian
+model StoryVersion {
+  id         String   @id @default(cuid())
+  storyId    String
+  version    Int                        // 1, 2, 3 …
+  content    String   @db.Text          // pełny tekst bajki
+  modelId    String?                    // np. "claude-opus-4-6"
+  promptHash String?                    // hash użytego promptu (debug)
+  tokens     Int?                       // zużyte tokeny
+
+  createdAt  DateTime @default(now())
+
+  // relacje
+  story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, version])
+  @@index([storyId])
+  @@map("story_versions")
+}
+
+// ---------------------------------------------------------------------------
+// SUBSCRIPTION (plany abonamentowe)
+// ---------------------------------------------------------------------------
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+
+  // Stripe (opcjonalne — wypełniane przy upgradzie)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  // relacje
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER      // np. 20 bajek/mies.
+  PREMIUM      // nieograniczony
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  INCOMPLETE
+}
+
+// ---------------------------------------------------------------------------
+// AUDIT LOG
+// ---------------------------------------------------------------------------
+// Ślad zdarzeń — kto, co, kiedy; przydatne do debugowania i compliance
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?                    // null dla zdarzeń anonimowych
+  action     String                     // np. "story.create", "user.login"
+  resource   String?                    // np. "Story", "ChildProfile"
+  resourceId String?                    // id zmienionego rekordu
+  metadata   Json?                      // dowolne dane kontekstowe (JSON)
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt  DateTime @default(now())
+
+  // relacje
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
