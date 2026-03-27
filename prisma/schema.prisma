@@ -7,29 +7,29 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")        // Prisma >= 5.10: pooler obsługuje też migracje
+  url      = env("DATABASE_URL")  // Prisma >= 5.10: pooler obsługuje też migracje
 }
 
 // ---------------------------------------------------------------------------
 // USER
 // ---------------------------------------------------------------------------
 model User {
-  id             String    @id @default(cuid())
-  email          String    @unique
-  name           String?
-  hashedPassword String?                // null gdy logowanie OAuth
-  emailVerified  DateTime?
-  image          String?
-  role           UserRole  @default(USER)
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String?                   // null gdy logowanie OAuth
+  name         String
+  emailVerified DateTime?
+  image        String?
+  role         UserRole  @default(USER)
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // relacje
-  profiles       ChildProfile[]
-  stories        Story[]
-  subscription   Subscription?
-  auditLogs      AuditLog[]
+  profiles     ChildProfile[]
+  stories      Story[]
+  subscription Subscription?
+  auditLogs    AuditLog[]
 
   @@map("users")
 }
@@ -43,92 +43,100 @@ enum UserRole {
 // CHILD PROFILE
 // ---------------------------------------------------------------------------
 model ChildProfile {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String                      // imię dziecka
-  age       Int                         // wiek (2–12)
-  gender    Gender
-  avatar    String?                     // emoji lub URL
-  notes     String?  @db.Text           // dodatkowe notatki rodzica
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  age            Int
+  gender         Gender
+  interests      String[]             // lista zainteresowań dziecka
+  favoriteColor  String?
+  favoriteAnimal String?
+  avatar         String?              // emoji lub URL awatara
+  notes          String?  @db.Text   // dodatkowe notatki rodzica
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // relacje
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stories   Story[]
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stories        Story[]
 
   @@index([userId])
   @@map("child_profiles")
 }
 
 enum Gender {
-  BOY        // chłopiec
-  GIRL       // dziewczynka
-  OTHER      // inne / nie podano
+  BOY    // chłopiec
+  GIRL   // dziewczynka
+  OTHER  // inne / nie podano
 }
 
 // ---------------------------------------------------------------------------
 // STORY
 // ---------------------------------------------------------------------------
 model Story {
-  id           String    @id @default(cuid())
-  userId       String
-  profileId    String
+  id             String      @id @default(cuid())
+  userId         String
+  childProfileId String
 
-  // parametry bajki
-  theme        StoryTheme
-  petName      String?                  // ulubione zwierzę
-  favoriteColor String?                 // ulubiony kolor
-  favoriteToy  String?                  // ulubiona zabawka
-  extra        String?   @db.Text       // dodatkowe wskazówki
-  moral        String?                  // przesłanie / morał
+  // metadane bajki
+  title          String
+  theme          StoryTheme
+  summary        String?     @db.Text  // krótki opis (1–2 zdania)
+  content        String?     @db.Text  // aktualny tekst bajki (cache ostatniej wersji)
+  coverImage     String?               // URL okładki / emoji
+  language       String      @default("pl")
+  status         StoryStatus @default(DRAFT)
 
-  // dane wygenerowane przez AI
-  title        String
-  status       StoryStatus @default(DRAFT)
+  // parametry generacji (snapshot w chwili tworzenia)
+  moral          String?
+  extra          String?     @db.Text
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   // relacje
-  user         User         @relation(fields: [userId],    references: [id], onDelete: Cascade)
-  profile      ChildProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  versions     StoryVersion[]
+  user           User         @relation(fields: [userId],         references: [id], onDelete: Cascade)
+  childProfile   ChildProfile @relation(fields: [childProfileId], references: [id], onDelete: Cascade)
+  versions       StoryVersion[]
+  likes          StoryLike[]
+  tags           StoryTag[]
 
   @@index([userId])
-  @@index([profileId])
+  @@index([childProfileId])
+  @@index([status])
   @@map("stories")
 }
 
 enum StoryTheme {
-  ADVENTURE    // przygoda
-  MAGIC        // magia
-  FRIENDSHIP   // przyjaźń
-  ANIMALS      // zwierzęta
-  SPACE        // kosmos
-  FAIRY_TALE   // bajka klasyczna
-  NATURE       // przyroda
+  ADVENTURE   // przygoda
+  MAGIC       // magia
+  FRIENDSHIP  // przyjaźń
+  ANIMALS     // zwierzęta
+  SPACE       // kosmos
+  FAIRY_TALE  // bajka klasyczna
+  NATURE      // przyroda
 }
 
 enum StoryStatus {
-  DRAFT        // generowanie w toku / błąd
-  PUBLISHED    // gotowa do czytania
-  ARCHIVED     // schowana w archiwum
+  DRAFT      // generowanie w toku / błąd
+  PUBLISHED  // gotowa do czytania
+  ARCHIVED   // ukryta w archiwum
 }
 
 // ---------------------------------------------------------------------------
 // STORY VERSION
 // ---------------------------------------------------------------------------
-// Każda (re)generacja bajki tworzy nową wersję — historia zmian
+// Każda (re)generacja bajki = nowa wersja. Story.content = cache najnowszej.
 model StoryVersion {
   id         String   @id @default(cuid())
   storyId    String
-  version    Int                        // 1, 2, 3 …
-  content    String   @db.Text          // pełny tekst bajki
-  modelId    String?                    // np. "claude-opus-4-6"
-  promptHash String?                    // hash użytego promptu (debug)
-  tokens     Int?                       // zużyte tokeny
+  version    Int                       // 1, 2, 3 …
+  content    String   @db.Text         // pełny tekst tej wersji
+  summary    String?  @db.Text         // podsumowanie tej wersji
+  modelId    String?                   // np. "claude-opus-4-6"
+  promptHash String?                   // hash promptu (debug/cache)
+  tokens     Int?                      // zużyte tokeny
 
   createdAt  DateTime @default(now())
 
@@ -141,7 +149,38 @@ model StoryVersion {
 }
 
 // ---------------------------------------------------------------------------
-// SUBSCRIPTION (plany abonamentowe)
+// STORY LIKE  (ulubione bajki)
+// ---------------------------------------------------------------------------
+model StoryLike {
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  story     Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, userId])
+  @@index([userId])
+  @@map("story_likes")
+}
+
+// ---------------------------------------------------------------------------
+// STORY TAG  (tagi / kategorie)
+// ---------------------------------------------------------------------------
+model StoryTag {
+  id      String @id @default(cuid())
+  storyId String
+  tag     String
+
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, tag])
+  @@index([tag])
+  @@map("story_tags")
+}
+
+// ---------------------------------------------------------------------------
+// SUBSCRIPTION  (plany abonamentowe)
 // ---------------------------------------------------------------------------
 model Subscription {
   id                   String             @id @default(cuid())
@@ -149,7 +188,7 @@ model Subscription {
   plan                 SubscriptionPlan   @default(FREE)
   status               SubscriptionStatus @default(ACTIVE)
 
-  // Stripe (opcjonalne — wypełniane przy upgradzie)
+  // Stripe — wypełniane przy upgradzie
   stripeCustomerId     String?            @unique
   stripeSubscriptionId String?            @unique
   stripePriceId        String?
@@ -157,6 +196,9 @@ model Subscription {
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean            @default(false)
+
+  storiesThisMonth     Int                @default(0)  // licznik miesięczny
+  storiesResetAt       DateTime?                       // kiedy wyzerować licznik
 
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
@@ -168,9 +210,9 @@ model Subscription {
 }
 
 enum SubscriptionPlan {
-  FREE
-  STARTER      // np. 20 bajek/mies.
-  PREMIUM      // nieograniczony
+  FREE      // 5 bajek / miesiąc, 1 profil dziecka
+  STARTER   // 20 bajek / miesiąc, 3 profile
+  PREMIUM   // nieograniczony, 10 profili
 }
 
 enum SubscriptionStatus {
@@ -184,14 +226,13 @@ enum SubscriptionStatus {
 // ---------------------------------------------------------------------------
 // AUDIT LOG
 // ---------------------------------------------------------------------------
-// Ślad zdarzeń — kto, co, kiedy; przydatne do debugowania i compliance
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?                    // null dla zdarzeń anonimowych
   action     String                     // np. "story.create", "user.login"
   resource   String?                    // np. "Story", "ChildProfile"
   resourceId String?                    // id zmienionego rekordu
-  metadata   Json?                      // dowolne dane kontekstowe (JSON)
+  metadata   Json?                      // dowolne dane kontekstowe
   ipAddress  String?
   userAgent  String?
 
