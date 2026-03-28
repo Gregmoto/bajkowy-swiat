@@ -27,7 +27,9 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  lastActiveAt DateTime?                   // ostatnia aktywność (login / akcja)
+  lastActiveAt      DateTime?              // ostatnia aktywność (login / akcja)
+  adminNote         String?   @db.Text    // notatka admina
+  flaggedForReview  Boolean   @default(false) // oznaczony do weryfikacji
 
   // relacje
   profiles     ChildProfile[]
@@ -203,6 +205,10 @@ model Subscription {
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean            @default(false)
 
+  billingPeriod        BillingPeriod      @default(MONTHLY)
+  canceledAt           DateTime?          // kiedy anulowano subskrypcję
+  notes                String?            @db.Text    // notatka admina
+
   storiesThisMonth     Int                @default(0)  // licznik miesięczny
   storiesResetAt       DateTime?                       // kiedy wyzerować licznik
 
@@ -229,6 +235,11 @@ enum SubscriptionStatus {
   INCOMPLETE
 }
 
+enum BillingPeriod {
+  MONTHLY
+  YEARLY
+}
+
 // ---------------------------------------------------------------------------
 // PAYMENT  (historia płatności)
 // ---------------------------------------------------------------------------
@@ -237,9 +248,11 @@ model Payment {
   userId          String
   amount          Int           // w groszach, np. 4900 = 49 zł
   currency        String        @default("PLN")
-  status          PaymentStatus @default(PENDING)
-  stripePaymentId String?       @unique
-  description     String?       // np. "Starter — styczeń 2026"
+  status          PaymentStatus  @default(PENDING)
+  paymentMethod   PaymentMethod  @default(OTHER)
+  type            String?        // np. "subscription", "one_time"
+  stripePaymentId String?        @unique
+  description     String?        // np. "Starter — styczeń 2026"
 
   createdAt       DateTime      @default(now())
 
@@ -256,6 +269,13 @@ enum PaymentStatus {
   SUCCEEDED
   FAILED
   REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  BLIK
+  TRANSFER
+  OTHER
 }
 
 // ---------------------------------------------------------------------------

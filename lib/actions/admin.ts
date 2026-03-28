@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { SubscriptionPlan, ReportStatus, UserRole } from "@prisma/client";
+import { SubscriptionPlan, ReportStatus, UserRole, SubscriptionStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -124,6 +124,99 @@ export async function deleteChildProfileAdmin(profileId: string): Promise<void> 
 // ---------------------------------------------------------------------------
 // ZGŁOSZENIA
 // ---------------------------------------------------------------------------
+
+/** Zapisz notatkę admina do użytkownika */
+export async function saveAdminNote(userId: string, note: string): Promise<AdminResult> {
+  try {
+    await verifyAdmin();
+    await prisma.user.update({
+      where: { id: userId },
+      data: { adminNote: note.trim() || null },
+    });
+    revalidatePath(`/admin/uzytkownicy/${userId}`);
+    return null;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Nieznany błąd." };
+  }
+}
+
+/** Oznacz / odznacz konto do weryfikacji */
+export async function toggleFlagUser(userId: string): Promise<AdminResult> {
+  try {
+    await verifyAdmin();
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { flaggedForReview: true } });
+    if (!user) return { error: "Użytkownik nie istnieje." };
+    await prisma.user.update({
+      where: { id: userId },
+      data: { flaggedForReview: !user.flaggedForReview },
+    });
+    revalidatePath(`/admin/uzytkownicy/${userId}`);
+    revalidatePath("/admin/uzytkownicy");
+    return null;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Nieznany błąd." };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SUBSKRYPCJE
+// ---------------------------------------------------------------------------
+
+/** Anuluj subskrypcję użytkownika */
+export async function cancelSubscription(userId: string): Promise<AdminResult> {
+  try {
+    await verifyAdmin();
+    await prisma.subscription.update({
+      where: { userId },
+      data: {
+        status: SubscriptionStatus.CANCELED,
+        canceledAt: new Date(),
+        cancelAtPeriodEnd: true,
+      },
+    });
+    revalidatePath(`/admin/uzytkownicy/${userId}`);
+    revalidatePath("/admin/subskrypcje");
+    return null;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Nieznany błąd." };
+  }
+}
+
+/** Przywróć subskrypcję (CANCELED → ACTIVE) */
+export async function restoreSubscription(userId: string): Promise<AdminResult> {
+  try {
+    await verifyAdmin();
+    await prisma.subscription.update({
+      where: { userId },
+      data: {
+        status: SubscriptionStatus.ACTIVE,
+        canceledAt: null,
+        cancelAtPeriodEnd: false,
+      },
+    });
+    revalidatePath(`/admin/uzytkownicy/${userId}`);
+    revalidatePath("/admin/subskrypcje");
+    return null;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Nieznany błąd." };
+  }
+}
+
+/** Zmień okres rozliczeniowy subskrypcji */
+export async function changeBillingPeriod(
+  userId: string,
+  period: "MONTHLY" | "YEARLY"
+): Promise<AdminResult> {
+  try {
+    await verifyAdmin();
+    await prisma.subscription.update({ where: { userId }, data: { billingPeriod: period } });
+    revalidatePath(`/admin/uzytkownicy/${userId}`);
+    revalidatePath("/admin/subskrypcje");
+    return null;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Nieznany błąd." };
+  }
+}
 
 /** Aktualizuj status zgłoszenia */
 export async function updateReportStatus(
