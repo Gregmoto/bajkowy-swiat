@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // GET   /api/user  — dane zalogowanego użytkownika
 // PATCH /api/user  — aktualizacja danych (imię, email)
 export async function GET() {

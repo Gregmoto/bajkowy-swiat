@@ -1,22 +1,28 @@
 import { BookOpen, Users, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-// Widget statystyk — liczba bajek, dzieci, wygenerowanych historii
-export default function StatystykiWidget() {
-  const STATYSTYKI = [
-    { ikona: <BookOpen className="h-5 w-5" />, label: "Bajek", wartosc: "0" },
-    { ikona: <Users className="h-5 w-5" />, label: "Dzieci", wartosc: "0" },
-    { ikona: <Sparkles className="h-5 w-5" />, label: "Motywów", wartosc: "5" },
+interface Props {
+  liczbaBajek: number;
+  liczbaDzieci: number;
+}
+
+export default function StatystykiWidget({ liczbaBajek, liczbaDzieci }: Props) {
+  const statystyki = [
+    { ikona: <BookOpen className="h-5 w-5" />, label: "Bajek", wartosc: liczbaBajek },
+    { ikona: <Users className="h-5 w-5" />, label: "Dzieci", wartosc: liczbaDzieci },
+    { ikona: <Sparkles className="h-5 w-5" />, label: "Motywów", wartosc: 7 },
   ];
 
   return (
     <>
-      {STATYSTYKI.map((stat) => (
+      {statystyki.map((stat) => (
         <Card key={stat.label}>
           <CardContent className="flex items-center gap-4 pt-6">
-            <div className="text-primary">{stat.ikona}</div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+              {stat.ikona}
+            </div>
             <div>
-              <p className="text-2xl font-bold">{stat.wartosc}</p>
+              <p className="text-2xl font-black">{stat.wartosc}</p>
               <p className="text-sm text-muted-foreground">{stat.label}</p>
             </div>
           </CardContent>

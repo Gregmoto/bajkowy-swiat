@@ -1,15 +1,42 @@
 "use client";
 
+import { useState } from "react";
 import { useFormState } from "react-dom";
 import Link from "next/link";
 import { User, Mail, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { registerAction } from "@/lib/auth/actions";
 import SubmitButton from "@/components/auth/SubmitButton";
 
+// ---------------------------------------------------------------------------
+// Password strength
+// ---------------------------------------------------------------------------
+type StrengthLevel = 0 | 1 | 2 | 3 | 4;
+
+function ocenHaslo(password: string): StrengthLevel {
+  if (!password) return 0;
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  return score as StrengthLevel;
+}
+
+const STRENGTH_CONFIG: Record<StrengthLevel, { label: string; color: string; bars: number }> = {
+  0: { label: "",              color: "bg-slate-200",  bars: 0 },
+  1: { label: "Słabe",         color: "bg-red-400",    bars: 1 },
+  2: { label: "Przeciętne",    color: "bg-amber-400",  bars: 2 },
+  3: { label: "Dobre",         color: "bg-emerald-400", bars: 3 },
+  4: { label: "Silne",         color: "bg-emerald-500", bars: 4 },
+};
+
 const FIELDS = ["name", "email", "password", "confirmPassword"] as const;
 
 export default function RegisterForm() {
   const [state, action] = useFormState(registerAction, null);
+  const [passwordValue, setPasswordValue] = useState("");
+  const strength = ocenHaslo(passwordValue);
+  const strengthCfg = STRENGTH_CONFIG[strength];
 
   return (
     <div className="w-full max-w-md">
@@ -89,18 +116,38 @@ export default function RegisterForm() {
                 type="password"
                 autoComplete="new-password"
                 placeholder="Minimum 8 znaków"
+                value={passwordValue}
+                onChange={(e) => setPasswordValue(e.target.value)}
                 className={`w-full rounded-xl border pl-10 pr-4 py-3 text-sm outline-none transition-colors
                   focus:border-orange-400 focus:ring-2 focus:ring-orange-100
                   ${state?.field === "password" ? "border-red-400 bg-red-50" : "border-slate-200 bg-slate-50"}`}
               />
             </div>
+
+            {/* Pasek siły hasła */}
+            {passwordValue && (
+              <div className="space-y-1">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((bar) => (
+                    <div
+                      key={bar}
+                      className={`h-1.5 flex-1 rounded-full transition-colors ${
+                        bar <= strengthCfg.bars ? strengthCfg.color : "bg-slate-200"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className={`text-xs ${strength <= 1 ? "text-red-500" : strength === 2 ? "text-amber-500" : "text-emerald-600"}`}>
+                  {strengthCfg.label}
+                </p>
+              </div>
+            )}
+
             {state?.field === "password" ? (
               <p className="text-xs text-red-600">{state.error}</p>
-            ) : (
-              <p className="text-xs text-slate-400">
-                Min. 8 znaków, wielka litera i cyfra
-              </p>
-            )}
+            ) : !passwordValue ? (
+              <p className="text-xs text-slate-400">Min. 8 znaków, wielka litera i cyfra</p>
+            ) : null}
           </div>
 
           {/* Potwierdzenie hasła */}

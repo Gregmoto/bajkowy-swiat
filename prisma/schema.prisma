@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")  // Prisma >= 5.10: pooler obsługuje też migracje
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // pooler URL — używany w runtime (queries)
+  directUrl = env("DIRECT_URL")     // bezpośredni URL — używany przez `prisma migrate`
 }
 
 // ---------------------------------------------------------------------------
@@ -21,6 +22,7 @@ model User {
   emailVerified DateTime?
   image        String?
   role         UserRole  @default(USER)
+  isBanned     Boolean   @default(false) // zablokowany przez admina
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -30,6 +32,7 @@ model User {
   stories      Story[]
   subscription Subscription?
   auditLogs    AuditLog[]
+  reports      Report[]
 
   @@map("users")
 }
@@ -221,6 +224,44 @@ enum SubscriptionStatus {
   CANCELED
   TRIALING
   INCOMPLETE
+}
+
+// ---------------------------------------------------------------------------
+// REPORT  (zgłoszenia użytkowników)
+// ---------------------------------------------------------------------------
+model Report {
+  id           String       @id @default(cuid())
+  userId       String?
+  type         ReportType
+  subject      String
+  description  String       @db.Text
+  status       ReportStatus @default(OPEN)
+  resolvedById String?                   // userId admina, który zamknął zgłoszenie
+  resolvedAt   DateTime?
+  adminNote    String?      @db.Text    // notatka admina
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([userId])
+  @@map("reports")
+}
+
+enum ReportType {
+  BUG       // błąd techniczny
+  CONTENT   // nieodpowiednia treść bajki
+  BILLING   // problem z płatnością
+  OTHER     // inne
+}
+
+enum ReportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }
 
 // ---------------------------------------------------------------------------
