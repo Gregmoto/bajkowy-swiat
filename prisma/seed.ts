@@ -1,4 +1,4 @@
-import { PrismaClient, Gender, StoryTheme, StoryStatus, SubscriptionPlan } from "@prisma/client";
+import { PrismaClient, Gender, StoryTheme, StoryStatus, SubscriptionPlan, PaymentStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -257,6 +257,22 @@ async function main() {
   await prisma.subscription.create({
     data: { userId: "seed-admin-001", plan: SubscriptionPlan.PREMIUM },
   });
+
+  // ── 6b. Przykładowe płatności ─────────────────────────────────────────────
+  console.log("💳 Tworzenie przykładowych płatności…");
+  const payments = [
+    { id: "seed-pay-001", userId: user.id, amount: 1900, description: "Starter — styczeń 2026",  status: PaymentStatus.SUCCEEDED, createdAt: new Date("2026-01-05") },
+    { id: "seed-pay-002", userId: user.id, amount: 1900, description: "Starter — luty 2026",     status: PaymentStatus.SUCCEEDED, createdAt: new Date("2026-02-05") },
+    { id: "seed-pay-003", userId: user.id, amount: 4900, description: "Premium — marzec 2026",   status: PaymentStatus.SUCCEEDED, createdAt: new Date("2026-03-05") },
+    { id: "seed-pay-004", userId: user.id, amount: 1900, description: "Starter — grudzień 2025", status: PaymentStatus.FAILED,    createdAt: new Date("2025-12-05") },
+  ];
+  for (const p of payments) {
+    await prisma.payment.upsert({
+      where: { id: p.id },
+      update: {},
+      create: p,
+    });
+  }
 
   // ── Przykładowe zgłoszenie ─────────────────────────────────────────────────
   await prisma.report.create({

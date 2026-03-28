@@ -27,12 +27,15 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  lastActiveAt DateTime?                   // ostatnia aktywność (login / akcja)
+
   // relacje
   profiles     ChildProfile[]
   stories      Story[]
   subscription Subscription?
   auditLogs    AuditLog[]
   reports      Report[]
+  payments     Payment[]
 
   @@map("users")
 }
@@ -224,6 +227,35 @@ enum SubscriptionStatus {
   CANCELED
   TRIALING
   INCOMPLETE
+}
+
+// ---------------------------------------------------------------------------
+// PAYMENT  (historia płatności)
+// ---------------------------------------------------------------------------
+model Payment {
+  id              String        @id @default(cuid())
+  userId          String
+  amount          Int           // w groszach, np. 4900 = 49 zł
+  currency        String        @default("PLN")
+  status          PaymentStatus @default(PENDING)
+  stripePaymentId String?       @unique
+  description     String?       // np. "Starter — styczeń 2026"
+
+  createdAt       DateTime      @default(now())
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
 }
 
 // ---------------------------------------------------------------------------
