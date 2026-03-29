@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/db";
 import { PaymentStatus, PaymentMethod } from "@prisma/client";
 import { Search, Download } from "lucide-react";
