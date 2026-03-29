@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Sparkles, LayoutDashboard, Users, Wand2, BookOpen, Settings, LogOut } from "lucide-react";
+import { Sparkles, LayoutDashboard, Users, Wand2, BookOpen, Settings, LogOut, MessageSquare } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
 import { logoutAction } from "@/lib/auth/actions";
 
@@ -10,6 +10,7 @@ const MENU = [
   { href: "/kreator",          icon: Wand2,           label: "Kreator bajki" },
   { href: "/biblioteka",       icon: BookOpen,        label: "Biblioteka" },
   { href: "/ustawienia/konto", icon: Settings,        label: "Ustawienia" },
+  { href: "/kontakt",          icon: MessageSquare,   label: "Kontakt"    },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

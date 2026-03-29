@@ -11,6 +11,7 @@ import {
   Banknote,
   BarChart3,
   Flag,
+  ScrollText,
   ArrowLeft,
   Sparkles,
   ShieldCheck,
@@ -24,8 +25,9 @@ const NAV = [
   { href: "/admin/dzieci",     label: "Profile dzieci",  icon: Baby },
   { href: "/admin/platnosci",  label: "Płatności",       icon: Banknote },
   { href: "/admin/subskrypcje",label: "Subskrypcje",     icon: CreditCard },
-  { href: "/admin/statystyki", label: "Statystyki",      icon: BarChart3 },
-  { href: "/admin/zgloszenia", label: "Zgłoszenia",      icon: Flag },
+  { href: "/admin/statystyki", label: "Statystyki",      icon: BarChart3  },
+  { href: "/admin/zgloszenia", label: "Zgłoszenia",      icon: Flag       },
+  { href: "/admin/logi",       label: "Logi audytu",     icon: ScrollText },
 ];
 
 interface Props {
