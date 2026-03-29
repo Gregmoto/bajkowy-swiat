@@ -22,22 +22,28 @@ model User {
   emailVerified DateTime?
   image        String?
   role         UserRole  @default(USER)
-  isBanned     Boolean   @default(false) // zablokowany przez admina
+  isBanned     Boolean   @default(false)
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  lastActiveAt      DateTime?              // ostatnia aktywność (login / akcja)
-  adminNote         String?   @db.Text    // notatka admina
-  flaggedForReview  Boolean   @default(false) // oznaczony do weryfikacji
+  lastActiveAt      DateTime?
+  adminNote         String?   @db.Text
+  flaggedForReview  Boolean   @default(false)
 
   // relacje
-  profiles     ChildProfile[]
-  stories      Story[]
-  subscription Subscription?
-  auditLogs    AuditLog[]
-  reports      Report[]
-  payments     Payment[]
+  profiles         ChildProfile[]
+  stories          Story[]
+  subscription     Subscription?
+  auditLogs        AuditLog[]
+  reports          Report[]
+  payments         Payment[]
+  invoices         Invoice[]
+  adminNotesTarget AdminNote[]       @relation("UserAdminNotes")
+  adminNotesAuthor AdminNote[]       @relation("AuthoredAdminNotes")
+  activityLogs     UserActivityLog[]
+  supportTickets   SupportTicket[]
+  refundRequests   RefundRequest[]
 
   @@map("users")
 }
@@ -56,16 +62,15 @@ model ChildProfile {
   name           String
   age            Int
   gender         Gender
-  interests      String[]             // lista zainteresowań dziecka
+  interests      String[]
   favoriteColor  String?
   favoriteAnimal String?
-  avatar         String?              // emoji lub URL awatara
-  notes          String?  @db.Text   // dodatkowe notatki rodzica
+  avatar         String?
+  notes          String?  @db.Text
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // relacje
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   stories        Story[]
 
@@ -74,9 +79,9 @@ model ChildProfile {
 }
 
 enum Gender {
-  BOY    // chłopiec
-  GIRL   // dziewczynka
-  OTHER  // inne / nie podano
+  BOY
+  GIRL
+  OTHER
 }
 
 // ---------------------------------------------------------------------------
@@ -87,23 +92,20 @@ model Story {
   userId         String
   childProfileId String
 
-  // metadane bajki
   title          String
   theme          StoryTheme
-  summary        String?     @db.Text  // krótki opis (1–2 zdania)
-  content        String?     @db.Text  // aktualny tekst bajki (cache ostatniej wersji)
-  coverImage     String?               // URL okładki / emoji
+  summary        String?     @db.Text
+  content        String?     @db.Text
+  coverImage     String?
   language       String      @default("pl")
   status         StoryStatus @default(DRAFT)
 
-  // parametry generacji (snapshot w chwili tworzenia)
   moral          String?
   extra          String?     @db.Text
 
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  // relacje
   user           User         @relation(fields: [userId],         references: [id], onDelete: Cascade)
   childProfile   ChildProfile @relation(fields: [childProfileId], references: [id], onDelete: Cascade)
   versions       StoryVersion[]
@@ -117,38 +119,36 @@ model Story {
 }
 
 enum StoryTheme {
-  ADVENTURE   // przygoda
-  MAGIC       // magia
-  FRIENDSHIP  // przyjaźń
-  ANIMALS     // zwierzęta
-  SPACE       // kosmos
-  FAIRY_TALE  // bajka klasyczna
-  NATURE      // przyroda
+  ADVENTURE
+  MAGIC
+  FRIENDSHIP
+  ANIMALS
+  SPACE
+  FAIRY_TALE
+  NATURE
 }
 
 enum StoryStatus {
-  DRAFT      // generowanie w toku / błąd
-  PUBLISHED  // gotowa do czytania
-  ARCHIVED   // ukryta w archiwum
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 // ---------------------------------------------------------------------------
 // STORY VERSION
 // ---------------------------------------------------------------------------
-// Każda (re)generacja bajki = nowa wersja. Story.content = cache najnowszej.
 model StoryVersion {
   id         String   @id @default(cuid())
   storyId    String
-  version    Int                       // 1, 2, 3 …
-  content    String   @db.Text         // pełny tekst tej wersji
-  summary    String?  @db.Text         // podsumowanie tej wersji
-  modelId    String?                   // np. "claude-opus-4-6"
-  promptHash String?                   // hash promptu (debug/cache)
-  tokens     Int?                      // zużyte tokeny
+  version    Int
+  content    String   @db.Text
+  summary    String?  @db.Text
+  modelId    String?
+  promptHash String?
+  tokens     Int?
 
   createdAt  DateTime @default(now())
 
-  // relacje
   story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
 
   @@unique([storyId, version])
@@ -157,7 +157,7 @@ model StoryVersion {
 }
 
 // ---------------------------------------------------------------------------
-// STORY LIKE  (ulubione bajki)
+// STORY LIKE
 // ---------------------------------------------------------------------------
 model StoryLike {
   id        String   @id @default(cuid())
@@ -173,7 +173,7 @@ model StoryLike {
 }
 
 // ---------------------------------------------------------------------------
-// STORY TAG  (tagi / kategorie)
+// STORY TAG
 // ---------------------------------------------------------------------------
 model StoryTag {
   id      String @id @default(cuid())
@@ -188,7 +188,7 @@ model StoryTag {
 }
 
 // ---------------------------------------------------------------------------
-// SUBSCRIPTION  (plany abonamentowe)
+// SUBSCRIPTION
 // ---------------------------------------------------------------------------
 model Subscription {
   id                   String             @id @default(cuid())
@@ -196,7 +196,6 @@ model Subscription {
   plan                 SubscriptionPlan   @default(FREE)
   status               SubscriptionStatus @default(ACTIVE)
 
-  // Stripe — wypełniane przy upgradzie
   stripeCustomerId     String?            @unique
   stripeSubscriptionId String?            @unique
   stripePriceId        String?
@@ -204,27 +203,28 @@ model Subscription {
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean            @default(false)
+  trialEndsAt          DateTime?
 
   billingPeriod        BillingPeriod      @default(MONTHLY)
-  canceledAt           DateTime?          // kiedy anulowano subskrypcję
-  notes                String?            @db.Text    // notatka admina
+  canceledAt           DateTime?
+  notes                String?            @db.Text
 
-  storiesThisMonth     Int                @default(0)  // licznik miesięczny
-  storiesResetAt       DateTime?                       // kiedy wyzerować licznik
+  storiesThisMonth     Int                @default(0)
+  storiesResetAt       DateTime?
 
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
-  // relacje
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices             Invoice[]
 
   @@map("subscriptions")
 }
 
 enum SubscriptionPlan {
-  FREE      // 5 bajek / miesiąc, 1 profil dziecka
-  STARTER   // 20 bajek / miesiąc, 3 profile
-  PREMIUM   // nieograniczony, 10 profili
+  FREE
+  STARTER
+  PREMIUM
 }
 
 enum SubscriptionStatus {
@@ -241,22 +241,26 @@ enum BillingPeriod {
 }
 
 // ---------------------------------------------------------------------------
-// PAYMENT  (historia płatności)
+// PAYMENT
 // ---------------------------------------------------------------------------
 model Payment {
   id              String        @id @default(cuid())
   userId          String
   amount          Int           // w groszach, np. 4900 = 49 zł
   currency        String        @default("PLN")
-  status          PaymentStatus  @default(PENDING)
-  paymentMethod   PaymentMethod  @default(OTHER)
-  type            String?        // np. "subscription", "one_time"
-  stripePaymentId String?        @unique
-  description     String?        // np. "Starter — styczeń 2026"
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethod @default(OTHER)
+  type            String?       // "subscription" | "one_time" | "top_up"
+  stripePaymentId String?       @unique
+  stripeChargeId  String?       @unique
+  description     String?
 
   createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice         Invoice?
+  refundRequests  RefundRequest[]
 
   @@index([userId])
   @@index([status])
@@ -269,17 +273,285 @@ enum PaymentStatus {
   SUCCEEDED
   FAILED
   REFUNDED
+  PARTIALLY_REFUNDED
+  DISPUTED
 }
 
 enum PaymentMethod {
   CARD
   BLIK
   TRANSFER
+  PAYPAL
+  APPLE_PAY
+  GOOGLE_PAY
   OTHER
 }
 
 // ---------------------------------------------------------------------------
-// REPORT  (zgłoszenia użytkowników)
+// INVOICE / BILLING RECORD
+// ---------------------------------------------------------------------------
+model Invoice {
+  id              String        @id @default(cuid())
+  userId          String
+  subscriptionId  String?
+  paymentId       String?       @unique
+  number          String        @unique     // np. "FS/2026/001"
+  amount          Int           // w groszach (kwota brutto)
+  currency        String        @default("PLN")
+  status          InvoiceStatus @default(DRAFT)
+  taxRate         Decimal?      @db.Decimal(5, 2)  // np. 23.00
+  taxAmount       Int?          // w groszach
+  netAmount       Int?          // kwota netto w groszach
+  description     String?
+  buyerName       String?
+  buyerAddress    String?       @db.Text
+  buyerTaxId      String?       // NIP nabywcy
+
+  stripeInvoiceId String?       @unique
+
+  issuedAt        DateTime      @default(now())
+  dueAt           DateTime?
+  paidAt          DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  payment         Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([issuedAt])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+// ---------------------------------------------------------------------------
+// ADMIN NOTE  (notes per user, written by admins)
+// ---------------------------------------------------------------------------
+model AdminNote {
+  id        String   @id @default(cuid())
+  userId    String                        // użytkownik, którego dotyczy notatka
+  authorId  String                        // admin, który ją napisał
+  content   String   @db.Text
+  isPinned  Boolean  @default(false)
+  isPrivate Boolean  @default(true)       // widoczna tylko dla adminów
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation("UserAdminNotes",    fields: [userId],   references: [id], onDelete: Cascade)
+  author    User     @relation("AuthoredAdminNotes", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([authorId])
+  @@map("admin_notes")
+}
+
+// ---------------------------------------------------------------------------
+// USER ACTIVITY LOG
+// ---------------------------------------------------------------------------
+model UserActivityLog {
+  id        String          @id @default(cuid())
+  userId    String
+  type      ActivityLogType
+  metadata  Json?           // dowolne dane kontekstowe (storyId, planId itp.)
+  ipAddress String?
+  userAgent String?
+  sessionId String?
+
+  createdAt DateTime        @default(now())
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("user_activity_logs")
+}
+
+enum ActivityLogType {
+  LOGIN
+  LOGOUT
+  STORY_CREATE
+  STORY_VIEW
+  STORY_REGENERATE
+  STORY_DELETE
+  STORY_SHARE
+  PROFILE_CREATE
+  PROFILE_UPDATE
+  PROFILE_DELETE
+  SUBSCRIPTION_UPGRADE
+  SUBSCRIPTION_DOWNGRADE
+  SUBSCRIPTION_CANCEL
+  SUBSCRIPTION_RESTORE
+  PAYMENT_INITIATED
+  PAYMENT_SUCCESS
+  PAYMENT_FAIL
+  PASSWORD_CHANGE
+  EMAIL_CHANGE
+  ACCOUNT_DELETE
+  SETTINGS_UPDATE
+}
+
+// ---------------------------------------------------------------------------
+// SUPPORT TICKET
+// ---------------------------------------------------------------------------
+model SupportTicket {
+  id          String         @id @default(cuid())
+  userId      String?
+  subject     String
+  description String         @db.Text
+  category    TicketCategory @default(OTHER)
+  priority    TicketPriority @default(NORMAL)
+  status      TicketStatus   @default(OPEN)
+  assignedTo  String?        // userId admina
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user        User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages    TicketMessage[]
+
+  @@index([status])
+  @@index([userId])
+  @@index([priority])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id         String        @id @default(cuid())
+  ticketId   String
+  authorId   String        // userId piszącego (user lub admin)
+  content    String        @db.Text
+  isInternal Boolean       @default(false)  // notatka wewnętrzna — tylko admini
+
+  createdAt  DateTime      @default(now())
+
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  CONTENT
+  ACCOUNT
+  FEATURE_REQUEST
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_USER
+  RESOLVED
+  CLOSED
+}
+
+// ---------------------------------------------------------------------------
+// REFUND REQUEST
+// ---------------------------------------------------------------------------
+model RefundRequest {
+  id             String       @id @default(cuid())
+  userId         String
+  paymentId      String
+  amount         Int          // kwota zwrotu w groszach (może być częściowa)
+  reason         String       @db.Text
+  status         RefundStatus @default(PENDING)
+  adminNote      String?      @db.Text
+  stripeRefundId String?      @unique
+  processedAt    DateTime?
+  processedBy    String?      // userId admina
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user           User         @relation(fields: [userId],    references: [id], onDelete: Cascade)
+  payment        Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("refund_requests")
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// SYSTEM EVENT LOG
+// ---------------------------------------------------------------------------
+model SystemEventLog {
+  id        String          @id @default(cuid())
+  type      SystemEventType
+  severity  EventSeverity   @default(INFO)
+  message   String
+  metadata  Json?
+  source    String?         // np. "stripe-webhook", "cron", "api", "admin"
+  traceId   String?         // korelacja zdarzeń w jednej operacji
+
+  createdAt DateTime        @default(now())
+
+  @@index([type])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("system_event_logs")
+}
+
+enum SystemEventType {
+  STRIPE_WEBHOOK
+  PAYMENT_PROCESSED
+  PAYMENT_FAILED
+  SUBSCRIPTION_RENEWED
+  SUBSCRIPTION_EXPIRED
+  SUBSCRIPTION_CREATED
+  INVOICE_GENERATED
+  REFUND_PROCESSED
+  EMAIL_SENT
+  EMAIL_FAILED
+  CRON_JOB_START
+  CRON_JOB_END
+  RATE_LIMIT_HIT
+  SECURITY_ALERT
+  DEPLOYMENT
+  ERROR
+  INFO
+}
+
+enum EventSeverity {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+// ---------------------------------------------------------------------------
+// REPORT  (zgłoszenia — stary model, zastępowany przez SupportTicket)
 // ---------------------------------------------------------------------------
 model Report {
   id           String       @id @default(cuid())
@@ -288,9 +560,9 @@ model Report {
   subject      String
   description  String       @db.Text
   status       ReportStatus @default(OPEN)
-  resolvedById String?                   // userId admina, który zamknął zgłoszenie
+  resolvedById String?
   resolvedAt   DateTime?
-  adminNote    String?      @db.Text    // notatka admina
+  adminNote    String?      @db.Text
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -303,10 +575,10 @@ model Report {
 }
 
 enum ReportType {
-  BUG       // błąd techniczny
-  CONTENT   // nieodpowiednia treść bajki
-  BILLING   // problem z płatnością
-  OTHER     // inne
+  BUG
+  CONTENT
+  BILLING
+  OTHER
 }
 
 enum ReportStatus {
@@ -317,21 +589,20 @@ enum ReportStatus {
 }
 
 // ---------------------------------------------------------------------------
-// AUDIT LOG
+// AUDIT LOG  (systemowy log akcji adminów i krytycznych zdarzeń)
 // ---------------------------------------------------------------------------
 model AuditLog {
   id         String   @id @default(cuid())
-  userId     String?                    // null dla zdarzeń anonimowych
-  action     String                     // np. "story.create", "user.login"
-  resource   String?                    // np. "Story", "ChildProfile"
-  resourceId String?                    // id zmienionego rekordu
-  metadata   Json?                      // dowolne dane kontekstowe
+  userId     String?
+  action     String                     // np. "user.ban", "story.delete"
+  resource   String?                    // np. "User", "Story"
+  resourceId String?
+  metadata   Json?
   ipAddress  String?
   userAgent  String?
 
   createdAt  DateTime @default(now())
 
-  // relacje
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
