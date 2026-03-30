@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Sparkles,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const NAV = [
   { href: "/admin/dzieci",     label: "Profile dzieci",  icon: Baby },
   { href: "/admin/platnosci",  label: "Płatności",       icon: Banknote },
   { href: "/admin/subskrypcje",label: "Subskrypcje",     icon: CreditCard },
+  { href: "/admin/finanse",    label: "Finanse",         icon: Wallet     },
   { href: "/admin/statystyki", label: "Statystyki",      icon: BarChart3  },
   { href: "/admin/zgloszenia", label: "Zgłoszenia",      icon: Flag       },
   { href: "/admin/logi",       label: "Logi audytu",     icon: ScrollText },
