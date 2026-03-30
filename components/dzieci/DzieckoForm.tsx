@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { profilDzieckaSchema, type ProfilDzieckaInput } from "@/lib/validators/dziecko";
 import { utworzProfilDziecka, zaktualizujProfilDziecka } from "@/lib/actions/dziecko";
 import type { ChildProfile } from "@prisma/client";
+import ChildPhotoUpload from "@/components/dzieci/ChildPhotoUpload";
 
 // ---------------------------------------------------------------------------
 // Stałe
@@ -125,6 +126,26 @@ export default function DzieckoForm({ dzieckoId, defaultValues }: Props) {
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
       <Card>
         <CardContent className="pt-6 space-y-6">
+
+          {/* ── Zdjęcie dziecka ── */}
+          {trybEdycji && dzieckoId ? (
+            <div className="space-y-2">
+              <Label>Zdjęcie dziecka</Label>
+              <p className="text-xs text-muted-foreground">
+                Zdjęcie pojawi się w profilu i posłuży do wygenerowania ilustracji bajkowej.
+              </p>
+              <ChildPhotoUpload
+                profileId={dzieckoId}
+                initialPhotoUrl={defaultValues?.photo ?? null}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs text-slate-400">
+                💡 Po zapisaniu profilu będziesz mógł/mogła dodać zdjęcie dziecka i wygenerować ilustrację bajkową.
+              </p>
+            </div>
+          )}
 
           {/* ── Avatar ── */}
           <div className="space-y-2">

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import Image from "next/image";
+import IllustrationCard from "@/components/dzieci/IllustrationCard";
 
 interface Props {
   params: { id: string };
@@ -59,8 +61,18 @@ export default async function ProfilDzieckaPage({ params }: Props) {
       {/* Nagłówek profilu */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 rounded-2xl bg-orange-50 flex items-center justify-center text-4xl shrink-0">
-            {avatar}
+          <div className="h-16 w-16 rounded-2xl overflow-hidden bg-orange-50 flex items-center justify-center shrink-0 border border-slate-200">
+            {dziecko.photo ? (
+              <Image
+                src={dziecko.photo}
+                alt={`Zdjęcie ${dziecko.name}`}
+                width={64}
+                height={64}
+                className="object-cover w-full h-full"
+              />
+            ) : (
+              <span className="text-4xl">{avatar}</span>
+            )}
           </div>
           <div>
             <h1 className="text-2xl font-black">{dziecko.name}</h1>
@@ -131,6 +143,16 @@ export default async function ProfilDzieckaPage({ params }: Props) {
             {dziecko.notes}
           </p>
         </div>
+      )}
+
+      {/* Ilustracja bajkowa */}
+      {(dziecko.photo || dziecko.illustrationStatus) && (
+        <IllustrationCard
+          profileId={dziecko.id}
+          hasPhoto={!!dziecko.photo}
+          initialStatus={dziecko.illustrationStatus ?? null}
+          initialIllustration={dziecko.illustration ?? null}
+        />
       )}
 
       {/* Historia bajek */}
