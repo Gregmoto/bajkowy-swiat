@@ -100,10 +100,11 @@ model Story {
   language       String      @default("pl")
   status         StoryStatus @default(DRAFT)
 
-  moral          String?
-  extra          String?     @db.Text
+  moral                String?
+  extra                String?     @db.Text
+  flaggedForModeration Boolean     @default(false)
 
-  createdAt      DateTime    @default(now())
+  createdAt            DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
   user           User         @relation(fields: [userId],         references: [id], onDelete: Cascade)
@@ -609,4 +610,21 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// SYSTEM SETTING  (konfiguracja platformy zarządzana przez admina)
+// ---------------------------------------------------------------------------
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique            // np. "app.name", "plan.free.storiesPerMonth"
+  value     Json                        // wartość — string, number, array, object
+  label     String?                     // etykieta dla UI admina
+  group     String?                     // sekcja: "app", "seo", "plans", "limits", "faq", "legal"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([group])
+  @@map("system_settings")
 }

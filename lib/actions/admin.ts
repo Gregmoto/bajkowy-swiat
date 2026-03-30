@@ -236,3 +236,51 @@ export async function updateReportStatus(reportId: string, status: ReportStatus,
     return null;
   } catch (err) { return { error: err instanceof Error ? err.message : "Nieznany błąd." }; }
 }
+
+// ---------------------------------------------------------------------------
+// Oznacz / odznacz bajkę do moderacji
+// ---------------------------------------------------------------------------
+export async function flagStoryAdmin(
+  storyId: string,
+  flagged: boolean
+): Promise<AdminResult> {
+  try {
+    const session = await verifyAdmin();
+    const story = await prisma.story.findUnique({ where: { id: storyId }, select: { title: true } });
+    if (!story) return { error: "Bajka nie istnieje" };
+    await prisma.story.update({ where: { id: storyId }, data: { flaggedForModeration: flagged } });
+    await writeAuditLog({
+      userId: session.userId,
+      action: flagged ? AUDIT_ACTIONS.STORY_FLAG : AUDIT_ACTIONS.STORY_UNFLAG,
+      resource: "Story",
+      resourceId: storyId,
+      metadata: { title: story.title },
+    });
+    revalidatePath("/admin/bajki");
+    revalidatePath(`/admin/bajki/${storyId}`);
+    return null;
+  } catch (err) { return { error: err instanceof Error ? err.message : "Nieznany błąd." }; }
+}
+
+// ---------------------------------------------------------------------------
+// Edytuj metadane bajki (tytuł, morał, streszczenie)
+// ---------------------------------------------------------------------------
+export async function editStoryMetadata(
+  storyId: string,
+  data: { title?: string; moral?: string; summary?: string }
+): Promise<AdminResult> {
+  try {
+    const session = await verifyAdmin();
+    await prisma.story.update({ where: { id: storyId }, data });
+    await writeAuditLog({
+      userId: session.userId,
+      action: AUDIT_ACTIONS.STORY_EDIT_META,
+      resource: "Story",
+      resourceId: storyId,
+      metadata: data,
+    });
+    revalidatePath("/admin/bajki");
+    revalidatePath(`/admin/bajki/${storyId}`);
+    return null;
+  } catch (err) { return { error: err instanceof Error ? err.message : "Nieznany błąd." }; }
+}

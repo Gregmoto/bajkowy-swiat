@@ -69,6 +69,10 @@ export const AUDIT_ACTIONS = {
   // Bajki
   STORY_DELETE:        "story.delete",
   STORY_STATUS_CHANGE: "story.status_change",
+  STORY_FLAG:          "story.flag",
+  STORY_UNFLAG:        "story.unflag",
+  STORY_EDIT_META:     "story.edit_metadata",
+  SETTINGS_UPDATE:     "settings.update",
 
   // Subskrypcje
   SUB_CANCEL:          "subscription.cancel",
